@@ -17,11 +17,11 @@ Terminal CLI tool for logging timestamped notes, stored as JSON. Written in Rust
 - [ ] CLI argument parsing with `clap` (derive API)
 - [ ] Subcommands:
   - `add <message>` — all args after `add` joined into one note (no quotes needed: `logbuch add my note`)
-  - `list` — display all notes formatted as `HH:MM description`, grouped by date
+  - `list` — date as markdown heading, notes as bullet list beneath (`- HH:MM description`)
 - [ ] Data structures:
   ```rust
   struct Note {
-      timestamp: String,  // ISO 8601
+      timestamp: String,  // full ISO 8601 (e.g. 2026-03-14T10:30:00+00:00)
       description: String,
   }
   struct Log {
@@ -32,8 +32,8 @@ Terminal CLI tool for logging timestamped notes, stored as JSON. Written in Rust
       logs: Vec<Log>,
   }
   ```
-- [ ] `add`: find or create today's `Log`, append `Note` with `chrono::Utc::now().to_rfc3339()`
-- [ ] `list`: print each day's notes as `HH:MM description`, grouped under date headers
+- [ ] `add`: find or create today's `Log`, append `Note` with full ISO 8601 timestamp
+- [ ] `list`: print date as `# YYYY-MM-DD` heading, notes as `- HH:MM description` bullet list
 - [ ] JSON storage: auto-create directory and file if missing
 
 ### 3. CI — PR Validation (`.github/workflows/ci.yml`)

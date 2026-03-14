@@ -24,7 +24,18 @@ When adding a note, find or create the `Log` for today's date, then append the n
 
 ## List Output Format
 
-Pretty-print as `HH:MM description`, grouped by date.
+Print the date as a markdown heading, then a bullet point list of notes beneath:
+
+```
+# 2026-03-14
+
+- 10:30 my first note
+- 14:15 another note
+
+# 2026-03-13
+
+- 09:00 yesterday's note
+```
 
 ## Storage
 
