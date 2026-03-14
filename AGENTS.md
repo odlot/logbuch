@@ -19,6 +19,7 @@
 - Use **conventional commits** (e.g. `feat:`, `fix:`, `docs:`, `ci:`, `refactor:`, `test:`, `chore:`)
 - Keep commits small and focused — one logical change per commit
 - Keep PRs as small as possible. If a feature is too large for a single PR, use **stacked PRs** to split it into reviewable increments
+- **Never force-push.** Force-pushing outdates review comments on PRs. Always push new commits instead
 
 ## Data Model
 
