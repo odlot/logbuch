@@ -23,7 +23,7 @@
 ## Data Model
 
 - **Logbuch** — top-level structure, contains a list of `Log` entries
-- **Log** — represents one day, contains a date and a list of `Note` entries
+- **Log** — represents one day, contains a `timestamp` (full ISO 8601) and a list of `Note` entries
 - **Note** — a single timestamped entry with `timestamp` (ISO 8601) and `description`
 
 When adding a note, find or create the `Log` for today's date, then append the note to it.

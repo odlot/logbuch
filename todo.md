@@ -25,7 +25,7 @@ Terminal CLI tool for logging timestamped notes, stored as JSON. Written in Rust
       description: String,
   }
   struct Log {
-      date: String,       // YYYY-MM-DD
+      timestamp: String,  // full ISO 8601 (e.g. 2026-03-14T00:00:00+00:00)
       notes: Vec<Note>,
   }
   struct Logbuch {
