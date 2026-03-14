@@ -4,13 +4,6 @@
 
 Terminal CLI tool for logging timestamped notes, stored as JSON. Written in Rust.
 
-## Principles
-
-- **Minimal dependencies.** Do not introduce external crates without explicit approval.
-- **Approved crates:** `serde` (with `derive`), `serde_json`, `chrono` — nothing else.
-- **Error handling:** `std::io::Error` — no `anyhow`, no `thiserror`.
-- **Ask before adding crates.** If a problem seems to require an external crate, discuss alternatives first.
-
 ## Git Workflow
 
 - `main` — stable/release branch (protected)
@@ -26,14 +19,14 @@ Terminal CLI tool for logging timestamped notes, stored as JSON. Written in Rust
 - [ ] Create `develop` branch from `main`
 - [ ] `cargo init` — set up Rust project (binary crate)
 - [ ] Add `.gitignore` for Rust (`/target`, etc.)
-- [ ] Add `Cargo.toml` metadata (name: `logbuch`, version: `0.1.0`, edition 2021)
-- [ ] Dependencies: `serde` (with `derive` feature), `serde_json`, `chrono`
+- [ ] Add `Cargo.toml` metadata (name: `logbuch`, version: `0.1.0`, edition 2024)
+- [ ] Dependencies: `serde` (with `derive` feature), `serde_json`, `chrono`, `clap` (with `derive` feature)
 
 ### 2. Core CLI — MVP
-- [ ] CLI argument parsing — hand-rolled with `std::env::args` (no `clap`)
+- [ ] CLI argument parsing with `clap` (derive API)
 - [ ] Subcommands:
-  - `add <message>` — single-line argument, appends a timestamped note
-  - `list` — display all notes, pretty-printed
+  - `add <message>` — all args after `add` joined into one note (no quotes needed: `logbuch add my note`)
+  - `list` — display all notes in markdown format
 - [ ] `Note` struct:
   ```rust
   #[derive(serde::Serialize, serde::Deserialize)]
@@ -43,9 +36,10 @@ Terminal CLI tool for logging timestamped notes, stored as JSON. Written in Rust
   }
   ```
 - [ ] Timestamp: `chrono::Utc::now().to_rfc3339()` for ISO 8601
+- [ ] `list` output: markdown representation (e.g. `- **2026-03-14T10:00:00Z** — my note`)
 - [ ] JSON storage:
-  - File: `$XDG_DATA_HOME/logbuch/notes.json` (default: `~/.local/share/logbuch/notes.json`)
-  - Override: `LOGBUCH_DATA_DIR` env var (points to directory; file is always `notes.json`)
+  - File: `$XDG_DATA_HOME/logbuch/logbuch.json` (default: `~/.local/share/logbuch/logbuch.json`)
+  - Override: `LOGBUCH_DATA_HOME` env var (points to directory; file is always `logbuch.json`)
   - Auto-create directory and file if missing
 - [ ] Document storage path and env var override in `README.md`
 
@@ -75,8 +69,8 @@ Terminal CLI tool for logging timestamped notes, stored as JSON. Written in Rust
 ### 5. README.md
 - [ ] Project description
 - [ ] Installation (from GitHub Releases)
-- [ ] Usage: `logbuch add "my note"`, `logbuch list`
-- [ ] Configuration: storage path (`XDG_DATA_HOME`, `LOGBUCH_DATA_DIR` override)
+- [ ] Usage: `logbuch add my note`, `logbuch list`
+- [ ] Configuration: storage path (`XDG_DATA_HOME`, `LOGBUCH_DATA_HOME` override)
 
 ### 6. Branch Protection (manual, after first PR)
 - [ ] Protect `main`: no direct pushes (except CI/GitHub Actions)
@@ -91,9 +85,11 @@ Terminal CLI tool for logging timestamped notes, stored as JSON. Written in Rust
 | Timestamp crate | `chrono` approved | `std` has no ISO 8601 formatter; hand-rolling is error-prone |
 | macOS build | `macos-latest` runner (native Apple Silicon) | Cannot cross-compile for darwin from Linux |
 | Linux ARM64 build | `ubuntu-24.04-arm` native runner | `cross` tool unmaintained (no release since Feb 2023, stale Docker images); manual toolchain works but native runner is simpler and faster |
-| CLI parser | `std::env::args` | Minimal dependency principle |
+| CLI parser | `clap` with derive | Full-featured, handles arg joining for quote-free input |
 | Error handling | `std::io::Error` | No external crate |
-| Storage path | XDG-compliant + `LOGBUCH_DATA_DIR` override | Standard on Linux/macOS |
+| Storage path | XDG-compliant + `LOGBUCH_DATA_HOME` override | Standard on Linux/macOS |
+| Storage file | `logbuch.json` | Generic name to support future entry types |
+| List format | Markdown | Clean, readable terminal output |
 | develop → main | Fast-forward push | Clean linear history |
 
 ## Open Questions
