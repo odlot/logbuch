@@ -14,6 +14,12 @@
 - Merging to `develop` triggers: fast-forward push to `main` + create GitHub Release
 - Semantic versioning starting at `0.1.0`, patch auto-incremented on each release workflow run
 
+## Commits & PRs
+
+- Use **conventional commits** (e.g. `feat:`, `fix:`, `docs:`, `ci:`, `refactor:`, `test:`, `chore:`)
+- Keep commits small and focused — one logical change per commit
+- Keep PRs as small as possible. If a feature is too large for a single PR, use **stacked PRs** to split it into reviewable increments
+
 ## Data Model
 
 - **Logbuch** — top-level structure, contains a list of `Log` entries
