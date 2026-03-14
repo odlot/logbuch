@@ -10,6 +10,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       should_release: ${{ steps.guard.outputs.should_release }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +44,24 @@ jobs:
           fi
           echo "version=${NEXT_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Next version: ${NEXT_VERSION}"
+
+      - name: Generate changelog
+        if: steps.guard.outputs.should_release == 'true'
+        id: changelog
+        run: |
+          LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1)
+          if [ -z "$LATEST_TAG" ]; then
+            LOG=$(git log --pretty=format:"- %s" HEAD)
+          else
+            LOG=$(git log --pretty=format:"- %s" "${LATEST_TAG}..HEAD")
+          fi
+          # Filter out chore commits and write to output
+          CHANGELOG=$(echo "$LOG" | grep -v "^- chore:" || true)
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "$CHANGELOG"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Bump version in Cargo.toml
         if: steps.guard.outputs.should_release == 'true'
@@ -120,6 +139,10 @@ jobs:
         with:
           tag_name: "v${{ needs.prepare.outputs.version }}"
           name: "v${{ needs.prepare.outputs.version }}"
+          body: |
+            ## Changelog
+
+            ${{ needs.prepare.outputs.changelog }}
           files: |
             logbuch-linux-aarch64/logbuch-linux-aarch64
             logbuch-darwin-aarch64/logbuch-darwin-aarch64
