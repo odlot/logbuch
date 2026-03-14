@@ -77,7 +77,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "Cargo.toml already at target version, skipping commit"
           else
-            git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+            git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]"
             git push origin HEAD:develop
           fi
 
