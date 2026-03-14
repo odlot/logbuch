@@ -1,5 +1,5 @@
-use chrono::Utc;
-use clap::{Parser, Subcommand};
+use chrono::{DateTime, NaiveDate, Utc};
+use clap::{Command, arg};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
@@ -22,39 +22,30 @@ struct Logbuch {
     logs: Vec<Log>,
 }
 
-#[derive(Parser)]
-#[command(name = "logbuch", about = "A simple CLI for logging timestamped notes")]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
+fn cli() -> Command {
+    Command::new("logbuch")
+        .about("A simple CLI for logging timestamped notes")
+        .subcommand_required(true)
+        .subcommand(
+            Command::new("add")
+                .about("Add a new note")
+                .arg(arg!(<MESSAGE> ... "The note text")),
+        )
+        .subcommand(Command::new("list").about("List all notes"))
 }
 
-#[derive(Subcommand)]
-enum Commands {
-    /// Add a new note
-    Add {
-        /// The note text (all words joined)
-        message: Vec<String>,
-    },
-    /// List all notes
-    List,
-}
-
-fn data_path() -> PathBuf {
+fn data_path() -> io::Result<PathBuf> {
     let dir = if let Ok(val) = std::env::var("LOGBUCH_DATA_HOME") {
         PathBuf::from(val)
     } else if let Ok(val) = std::env::var("XDG_DATA_HOME") {
         PathBuf::from(val).join("logbuch")
     } else {
-        dirs_home().join(".local/share/logbuch")
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Neither LOGBUCH_DATA_HOME nor XDG_DATA_HOME is set",
+        ));
     };
-    dir.join("logbuch.json")
-}
-
-fn dirs_home() -> PathBuf {
-    std::env::var("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("."))
+    Ok(dir.join("logbuch.json"))
 }
 
 fn load_logbuch(path: &PathBuf) -> io::Result<Logbuch> {
@@ -75,15 +66,31 @@ fn save_logbuch(path: &PathBuf, logbuch: &Logbuch) -> io::Result<()> {
     fs::write(path, data)
 }
 
+fn parse_date(timestamp: &str) -> Option<NaiveDate> {
+    DateTime::parse_from_rfc3339(timestamp)
+        .ok()
+        .map(|dt| dt.date_naive())
+}
+
+fn format_time(timestamp: &str) -> String {
+    DateTime::parse_from_rfc3339(timestamp)
+        .map(|dt| dt.format("%H:%M").to_string())
+        .unwrap_or_else(|_| "??:??".to_string())
+}
+
 fn add_note(message: Vec<String>) -> io::Result<()> {
-    let path = data_path();
+    let path = data_path()?;
     let mut logbuch = load_logbuch(&path)?;
 
     let now = Utc::now();
-    let today = now.format("%Y-%m-%dT00:00:00+00:00").to_string();
+    let today = now.to_rfc3339();
     let description = message.join(" ");
 
-    let log = logbuch.logs.iter_mut().find(|l| l.timestamp == today);
+    let today_date = now.date_naive();
+    let log = logbuch
+        .logs
+        .iter_mut()
+        .find(|l| parse_date(&l.timestamp) == Some(today_date));
 
     let note = Note {
         timestamp: now.to_rfc3339(),
@@ -103,7 +110,7 @@ fn add_note(message: Vec<String>) -> io::Result<()> {
 }
 
 fn list_notes() -> io::Result<()> {
-    let path = data_path();
+    let path = data_path()?;
     let logbuch = load_logbuch(&path)?;
 
     if logbuch.logs.is_empty() {
@@ -112,12 +119,13 @@ fn list_notes() -> io::Result<()> {
     }
 
     for log in &logbuch.logs {
-        let date = &log.timestamp[..10];
+        let date = parse_date(&log.timestamp)
+            .map(|d| d.to_string())
+            .unwrap_or_else(|| "Unknown date".to_string());
         println!("# {}", date);
         println!();
         for note in &log.notes {
-            let time = &note.timestamp[11..16];
-            println!("- {} {}", time, note.description);
+            println!("- {} {}", format_time(&note.timestamp), note.description);
         }
         println!();
     }
@@ -126,10 +134,18 @@ fn list_notes() -> io::Result<()> {
 }
 
 fn main() -> io::Result<()> {
-    let cli = Cli::parse();
+    let matches = cli().get_matches();
 
-    match cli.command {
-        Commands::Add { message } => add_note(message),
-        Commands::List => list_notes(),
+    match matches.subcommand() {
+        Some(("add", sub)) => {
+            let message: Vec<String> = sub
+                .get_many::<String>("MESSAGE")
+                .unwrap()
+                .map(|s| s.to_string())
+                .collect();
+            add_note(message)
+        }
+        Some(("list", _)) => list_notes(),
+        _ => unreachable!(),
     }
 }
