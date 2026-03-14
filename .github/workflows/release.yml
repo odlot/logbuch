@@ -12,7 +12,7 @@ jobs:
       should_release: ${{ steps.guard.outputs.should_release }}
       changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
@@ -106,7 +106,7 @@ jobs:
             artifact: logbuch-darwin-aarch64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: "v${{ needs.prepare.outputs.version }}"
 
