@@ -26,11 +26,11 @@
 
 - **Logbuch** — top-level structure, contains a list of `Log` entries
 - **Log** — represents one day, contains a `timestamp` (full ISO 8601) and a list of `Task` entries
-- **Task** — a piece of work with `id` (creation timestamp, unique), `description`, `done` flag, and a list of `Session` entries
-- **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration_minutes`, and a list of `Note` entries
+- **Task** — a piece of work with `timestamp` (creation timestamp, unique identifier, never changes), `description`, `done` flag, and a list of `Session` entries
+- **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration` (in minutes), and a list of `Note` entries
 - **Note** — a single timestamped entry with `timestamp` (ISO 8601) and `description`
 
-Notes can only be added during an active session. Tasks carry over between days: on each CLI invocation, unfinished tasks (done == false) from previous days are copied into today's Log (matched by id, empty sessions for the new day).
+Notes can only be added during an active session (foreground mode). Tasks carry over between days: on each CLI invocation, unfinished tasks (done == false) from previous days are copied into today's Log (matched by timestamp, empty sessions for the new day).
 
 ## CLI Commands
 
@@ -39,8 +39,11 @@ Notes can only be added during an active session. Tasks carry over between days:
 | `logbuch add <description>` | Create a new task in today's log |
 | `logbuch list` | Show today's active (not done) tasks with indices |
 | `logbuch start <index> [--duration <min>]` | Start a pomodoro session (foreground, accepts notes inline) |
-| `logbuch stop` | Manually stop the active session |
-| `logbuch done <index>` | Mark a task as done |
+| `logbuch toggle <index>` | Toggle a task between done and undone |
+
+There is no `stop` command. Sessions end either by timer expiry (auto-stop) or by the user pressing Ctrl+C in the foreground session. The CLI is always in foreground during an active session — there is no background mode. The user focuses on one task at a time.
+
+`list` is only usable when no session is active (the CLI is in foreground during sessions). To see tasks, the user must first end the current session.
 
 ## List Output Format
 
@@ -52,10 +55,11 @@ Notes can only be added during an active session. Tasks carry over between days:
   3. Write docs (0 sessions)
 ```
 
-Only shows tasks where done == false. Indicates active session if one is running.
+Only shows tasks where done == false.
 
 ## Session (Pomodoro)
 
+- **Foreground only** — no background mode. The user should always focus on one task during a session
 - Default duration: 25 minutes, configurable per start via `--duration`
 - Last chosen duration becomes the new default (persisted in config)
 - Foreground mode: shows countdown, accepts note input (type + Enter)
@@ -66,7 +70,7 @@ Only shows tasks where done == false. Indicates active session if one is running
 ## Configuration
 
 - File: `logbuch.config.json` in same directory as data
-- Stores `default_duration_minutes` (default: 25, updated on each `start --duration`)
+- Stores `default_duration` (in minutes, default: 25, updated on each `start --duration`)
 
 ## Storage
 
@@ -86,4 +90,5 @@ Only shows tasks where done == false. Indicates active session if one is running
 | Storage file | `logbuch.json` | Generic name to support future entry types |
 | Config file | `logbuch.config.json` | Separate from data, same directory |
 | List format | Indexed tasks with session count/time | Clean, readable terminal output |
+| Session mode | Foreground only | Single-task focus, no multitasking |
 | develop → main | Fast-forward push | Clean linear history |

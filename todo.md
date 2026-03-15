@@ -25,12 +25,12 @@ struct Note {
 struct Session {
     begin: String,           // full ISO 8601
     end: Option<String>,     // None while active
-    duration_minutes: u32,   // configured pomodoro duration
+    duration: u32,           // configured pomodoro duration in minutes
     notes: Vec<Note>,
 }
 
 struct Task {
-    id: String,              // creation timestamp (unique ID)
+    timestamp: String,       // creation timestamp (unique identifier, never changes)
     description: String,
     done: bool,
     sessions: Vec<Session>,
@@ -47,7 +47,7 @@ struct Logbuch {
 ```
 
 - [ ] Migrate data model in code
-- [ ] Task carry-over: on each CLI invocation, copy unfinished tasks (done == false) from previous days into today's Log (if not already present, matched by id)
+- [ ] Task carry-over: on each CLI invocation, copy unfinished tasks (done == false) from previous days into today's Log (if not already present, matched by timestamp)
 
 ### 2. CLI Command Changes
 
@@ -58,19 +58,18 @@ All commands now operate on tasks:
 | `logbuch add <description>` | Create a new task in today's log |
 | `logbuch list` | Show today's active (not done) tasks with indices |
 | `logbuch start <index> [--duration <min>]` | Start a pomodoro session on a task (foreground) |
-| `logbuch stop` | Manually stop the active session |
-| `logbuch done <index>` | Mark a task as done (hidden from list) |
+| `logbuch toggle <index>` | Toggle a task between done and undone |
+
+No `stop` command — sessions end via timer expiry or Ctrl+C.
 
 - [ ] Refactor `add` to create a Task (not a Note)
 - [ ] Refactor `list` to show tasks with index, description, session count
 - [ ] Implement `start` subcommand
-- [ ] Implement `stop` subcommand
-- [ ] Implement `done` subcommand
-- [ ] Error on `add <note text>` when no session active — show task list with hint to start a session
+- [ ] Implement `toggle` subcommand
 
 ### 3. Foreground Session (Pomodoro Timer)
 
-`logbuch start <index>` enters a foreground interactive mode:
+`logbuch start <index>` enters a foreground interactive mode. This is the only mode — there is no background mode. The user focuses on one task at a time.
 
 - [ ] Show countdown timer (updating in terminal)
 - [ ] Accept note input inline (user types + Enter to add a note to the session)
@@ -87,7 +86,7 @@ Config file: `logbuch.config.json` in same directory as data (XDG / `LOGBUCH_DAT
 
 ```json
 {
-  "default_duration_minutes": 25
+  "default_duration": 25
 }
 ```
 
@@ -99,7 +98,7 @@ Config file: `logbuch.config.json` in same directory as data (XDG / `LOGBUCH_DAT
 
 - [ ] On any CLI invocation, check if today's Log exists
 - [ ] If not, create today's Log and copy all tasks with `done == false` from the most recent previous Log
-- [ ] Carried-over tasks keep their original `id` but start with an empty sessions list for the new day
+- [ ] Carried-over tasks keep their original `timestamp` but start with an empty sessions list for the new day
 
 ### 6. List Output
 
@@ -113,11 +112,10 @@ Config file: `logbuch.config.json` in same directory as data (XDG / `LOGBUCH_DAT
 
 - [ ] Show index, description, session count, total time
 - [ ] Only show tasks where `done == false`
-- [ ] Indicate if a session is currently active (e.g. `▶ Build feature X (in progress, 12:30 remaining)`)
 
 ### 7. Update README
 
-- [ ] Document new commands: `add`, `list`, `start`, `stop`, `done`
+- [ ] Document new commands: `add`, `list`, `start`, `toggle`
 - [ ] Document pomodoro session workflow
 - [ ] Document config file
 
