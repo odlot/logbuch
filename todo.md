@@ -1,69 +1,128 @@
 # logbuch — TODO
 
-## Overview
+## Milestone 1: MVP (completed)
 
-Terminal CLI tool for logging timestamped notes, stored as JSON. Written in Rust.
+- [x] Project setup (cargo init, deps, .gitignore)
+- [x] Core CLI (add, list)
+- [x] CI (PR validation)
+- [x] CD (release automation with changelog)
+- [x] README
+- [x] Branch protection
+- [x] Dependabot
 
-## Tasks
+## Milestone 2: Tasks & Sessions
 
-### 1. Project Setup
-- [ ] Create `develop` branch from `main`
-- [ ] `cargo init` — set up Rust project (binary crate)
-- [ ] Add `.gitignore` for Rust (`/target`, etc.)
-- [ ] Add `Cargo.toml` metadata (name: `logbuch`, version: `0.1.0`, edition 2024)
-- [ ] Dependencies: `serde` (with `derive` feature), `serde_json`, `chrono`, `clap` (with `derive` feature)
+### 1. Data Model Refactor
 
-### 2. Core CLI — MVP
-- [ ] CLI argument parsing with `clap` (derive API)
-- [ ] Subcommands:
-  - `add <message>` — all args after `add` joined into one note (no quotes needed: `logbuch add my note`)
-  - `list` — date as markdown heading, notes as bullet list beneath (`- HH:MM description`)
-- [ ] Data structures:
-  ```rust
-  struct Note {
-      timestamp: String,  // full ISO 8601 (e.g. 2026-03-14T10:30:00+00:00)
-      description: String,
-  }
-  struct Log {
-      timestamp: String,  // full ISO 8601 (e.g. 2026-03-14T00:00:00+00:00)
-      notes: Vec<Note>,
-  }
-  struct Logbuch {
-      logs: Vec<Log>,
-  }
-  ```
-- [ ] `add`: find or create today's `Log`, append `Note` with full ISO 8601 timestamp
-- [ ] `list`: print date as `# YYYY-MM-DD` heading, notes as `- HH:MM description` bullet list
-- [ ] JSON storage: auto-create directory and file if missing
+Restructure from `Logbuch > Log > Note` to `Logbuch > Log > Task > Session > Note`.
 
-### 3. CI — PR Validation (`.github/workflows/ci.yml`)
-- [ ] Trigger: pull requests targeting `develop`
-- [ ] Steps: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`
-- [ ] Runner: `ubuntu-latest`
+```rust
+struct Note {
+    timestamp: String,       // full ISO 8601
+    description: String,
+}
 
-### 4. CD — Release Automation (`.github/workflows/release.yml`)
-- [ ] Trigger: push to `develop` (i.e. after PR merge)
-- [ ] Matrix strategy with two jobs:
-  | Target                        | Runner              | Toolchain setup                                              |
-  |-------------------------------|---------------------|--------------------------------------------------------------|
-  | `aarch64-unknown-linux-gnu`   | `ubuntu-24.04-arm`  | Native ARM64 runner — no cross-compilation needed             |
-  | `aarch64-apple-darwin`        | `macos-latest`      | Native Apple Silicon runner — no cross-compilation needed     |
-- [ ] Steps:
-  1. Determine next version (read latest `v*` tag, increment patch; default `0.1.0` if no tag)
-  2. Bump version in `Cargo.toml`, commit to `develop`
-  3. Build release binary on each matrix runner (native, no cross-compilation)
-  4. Fast-forward push `develop` to `main`
-  5. Create git tag `v0.x.y` on `main`
-  6. Create GitHub Release with tag `v0.x.y`
-  7. Attach both binaries as release assets (`logbuch-linux-aarch64`, `logbuch-darwin-aarch64`)
-- [ ] Starting version: `0.1.0`
+struct Session {
+    begin: String,           // full ISO 8601
+    end: Option<String>,     // None while active
+    duration_minutes: u32,   // configured pomodoro duration
+    notes: Vec<Note>,
+}
 
-### 5. README.md
-- [ ] Project description
-- [ ] Installation (from GitHub Releases)
-- [ ] Usage: `logbuch add my note`, `logbuch list`
-- [ ] Configuration: storage path (`XDG_DATA_HOME`, `LOGBUCH_DATA_HOME` override)
+struct Task {
+    id: String,              // creation timestamp (unique ID)
+    description: String,
+    done: bool,
+    sessions: Vec<Session>,
+}
 
-### 6. Branch Protection (manual, after first PR)
-- [ ] Protect `main`: no direct pushes (except CI/GitHub Actions)
-- [ ] Protect `develop`: require PR + CI pass
+struct Log {
+    timestamp: String,       // full ISO 8601 (day)
+    tasks: Vec<Task>,
+}
+
+struct Logbuch {
+    logs: Vec<Log>,
+}
+```
+
+- [ ] Migrate data model in code
+- [ ] Task carry-over: on each CLI invocation, copy unfinished tasks (done == false) from previous days into today's Log (if not already present, matched by id)
+
+### 2. CLI Command Changes
+
+All commands now operate on tasks:
+
+| Command | Description |
+|---------|-------------|
+| `logbuch add <description>` | Create a new task in today's log |
+| `logbuch list` | Show today's active (not done) tasks with indices |
+| `logbuch start <index> [--duration <min>]` | Start a pomodoro session on a task (foreground) |
+| `logbuch stop` | Manually stop the active session |
+| `logbuch done <index>` | Mark a task as done (hidden from list) |
+
+- [ ] Refactor `add` to create a Task (not a Note)
+- [ ] Refactor `list` to show tasks with index, description, session count
+- [ ] Implement `start` subcommand
+- [ ] Implement `stop` subcommand
+- [ ] Implement `done` subcommand
+- [ ] Error on `add <note text>` when no session active — show task list with hint to start a session
+
+### 3. Foreground Session (Pomodoro Timer)
+
+`logbuch start <index>` enters a foreground interactive mode:
+
+- [ ] Show countdown timer (updating in terminal)
+- [ ] Accept note input inline (user types + Enter to add a note to the session)
+- [ ] Auto-stop session when timer expires (set `end` timestamp, exit foreground mode)
+- [ ] Notify user on session completion (terminal bell / message)
+- [ ] Handle Ctrl+C gracefully: save session with current timestamp as end
+- [ ] Only one session active at a time — error if another is already running
+- [ ] Default duration: 25 minutes
+- [ ] Optional `--duration <minutes>` flag overrides default
+
+### 4. Configuration
+
+Config file: `logbuch.config.json` in same directory as data (XDG / `LOGBUCH_DATA_HOME`).
+
+```json
+{
+  "default_duration_minutes": 25
+}
+```
+
+- [ ] Load config on startup, create with defaults if missing
+- [ ] Default duration = last chosen duration (update config each time `start` is called with a duration)
+- [ ] Read default from config when `--duration` is not provided
+
+### 5. Task Carry-Over Logic
+
+- [ ] On any CLI invocation, check if today's Log exists
+- [ ] If not, create today's Log and copy all tasks with `done == false` from the most recent previous Log
+- [ ] Carried-over tasks keep their original `id` but start with an empty sessions list for the new day
+
+### 6. List Output
+
+```
+# 2026-03-14
+
+  1. Build feature X (2 sessions, 50 min)
+  2. Fix bug Y (1 session, 25 min)
+  3. Write docs (0 sessions)
+```
+
+- [ ] Show index, description, session count, total time
+- [ ] Only show tasks where `done == false`
+- [ ] Indicate if a session is currently active (e.g. `▶ Build feature X (in progress, 12:30 remaining)`)
+
+### 7. Update README
+
+- [ ] Document new commands: `add`, `list`, `start`, `stop`, `done`
+- [ ] Document pomodoro session workflow
+- [ ] Document config file
+
+### 8. Tests
+
+- [ ] Task creation and carry-over logic
+- [ ] Session start/stop lifecycle
+- [ ] Config load/save/default behavior
