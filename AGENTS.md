@@ -25,25 +25,52 @@
 ## Data Model
 
 - **Logbuch** — top-level structure, contains a list of `Log` entries
-- **Log** — represents one day, contains a `timestamp` (full ISO 8601) and a list of `Note` entries
+- **Log** — represents one day, contains a `timestamp` (full ISO 8601) and a list of `Task` entries
+- **Task** — a piece of work with `timestamp` (creation timestamp, unique identifier, never changes), `description`, `done` flag, and a list of `Session` entries
+- **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration` (in minutes), and a list of `Note` entries
 - **Note** — a single timestamped entry with `timestamp` (ISO 8601) and `description`
 
-When adding a note, find or create the `Log` for today's date, then append the note to it.
+Notes can only be added during an active session (foreground mode). Tasks carry over between days: on each CLI invocation, unfinished tasks (done == false) from previous days are copied into today's Log (matched by timestamp, empty sessions for the new day).
+
+## CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `logbuch add <description>` | Create a new task in today's log |
+| `logbuch list` | Show today's active (not done) tasks with indices |
+| `logbuch start <index> [--duration <min>]` | Start a pomodoro session (foreground, accepts notes inline) |
+| `logbuch toggle <index>` | Toggle a task between done and undone |
+
+There is no `stop` command. Sessions end either by timer expiry (auto-stop) or by the user pressing Ctrl+C in the foreground session. The CLI is always in foreground during an active session — there is no background mode. The user focuses on one task at a time.
+
+`list` is only usable when no session is active (the CLI is in foreground during sessions). To see tasks, the user must first end the current session.
 
 ## List Output Format
-
-Print the date as a markdown heading, then a bullet point list of notes beneath:
 
 ```
 # 2026-03-14
 
-- 10:30 my first note
-- 14:15 another note
-
-# 2026-03-13
-
-- 09:00 yesterday's note
+  1. Build feature X (2 sessions, 50 min)
+  2. Fix bug Y (1 session, 25 min)
+  3. Write docs (0 sessions)
 ```
+
+Only shows tasks where done == false.
+
+## Session (Pomodoro)
+
+- **Foreground only** — no background mode. The user should always focus on one task during a session
+- Default duration: 25 minutes, configurable per start via `--duration`
+- Last chosen duration becomes the new default (persisted in config)
+- Foreground mode: shows countdown, accepts note input (type + Enter)
+- Auto-stops on timer expiry with notification
+- Ctrl+C saves session with current timestamp as end
+- Only one session active at a time
+
+## Configuration
+
+- File: `logbuch.config.json` in same directory as data
+- Stores `default_duration` (in minutes, default: 25, updated on each `start --duration`)
 
 ## Storage
 
@@ -61,5 +88,7 @@ Print the date as a markdown heading, then a bullet point list of notes beneath:
 | Error handling | `std::io::Error` | No external crate |
 | Storage path | XDG-compliant + `LOGBUCH_DATA_HOME` override | Standard on Linux/macOS |
 | Storage file | `logbuch.json` | Generic name to support future entry types |
-| List format | `HH:MM description` grouped by date | Clean, readable terminal output |
+| Config file | `logbuch.config.json` | Separate from data, same directory |
+| List format | Indexed tasks with session count/time | Clean, readable terminal output |
+| Session mode | Foreground only | Single-task focus, no multitasking |
 | develop → main | Fast-forward push | Clean linear history |
