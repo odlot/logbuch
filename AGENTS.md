@@ -24,26 +24,48 @@
 
 ## Data Model
 
-- **Logbuch** — top-level structure, contains a list of `Log` entries
+- **Logbuch** — top-level structure, contains a list of `Log` entries and an `inbox` (list of `Todo` items)
 - **Log** — represents one day, contains a `timestamp` (full ISO 8601) and a list of `Task` entries
-- **Task** — a piece of work with `timestamp` (creation timestamp, unique identifier, never changes), `description`, `done` flag, and a list of `Session` entries
+- **Task** — a piece of work with `timestamp` (creation timestamp, unique identifier, never changes), `description`, `done` flag, a list of `Todo` sub-items, and a list of `Session` entries
+- **Todo** — a sub-item with `timestamp`, `description`, `done` flag. Lives either inside a Task (planned sub-task) or in the Logbuch inbox (unplanned, captured during sessions)
 - **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration` (in minutes), and a list of `Note` entries
 - **Note** — a single timestamped entry with `timestamp` (ISO 8601) and `description`
 
 Notes can only be added during an active session (foreground mode). Tasks carry over between days: on each CLI invocation, unfinished tasks (done == false) from previous days are copied into today's Log (matched by timestamp, empty sessions for the new day).
+
+## Todos & Inbox (GTD / Pomodoro Philosophy)
+
+Two contexts for todos:
+
+- **Planning mode** (outside session): todos are sub-items of tasks. Use `logbuch todo add <task-index> <text>` to break down a task into actionable steps.
+- **Focus mode** (during session): all todos go to the **inbox**. The user is in a pomodoro — every intrusive thought or unplanned item is deferred. Type `/todo some text` to capture to inbox without breaking focus.
+
+After a session, the user triages the inbox: promote items to tasks, attach to existing tasks as todos, or mark done.
 
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
 | `logbuch add <description>` | Create a new task in today's log |
-| `logbuch list` | Show today's active (not done) tasks with indices |
-| `logbuch start <index> [--duration <min>]` | Start a pomodoro session (foreground, accepts notes inline) |
-| `logbuch toggle <index>` | Toggle a task between done and undone |
+| `logbuch list` | Show today's tasks with indices (undone first, then done from same day) |
+| `logbuch start <index>` | Start a pomodoro session (prompts for duration, foreground) |
+| `logbuch toggle [index]` | Toggle a task done/undone (shows list if no index given) |
+| `logbuch todo add <task-index> <text>` | Add a todo to a task |
+| `logbuch todo list <task-index>` | Show todos for a task |
+| `logbuch todo toggle <task-index> <todo-index>` | Toggle a todo done/undone |
+| `logbuch inbox` | Show inbox items |
+| `logbuch inbox promote <index>` | Move inbox item to a task as todo, or create new task |
 
-There is no `stop` command. Sessions end either by timer expiry (auto-stop) or by the user pressing Ctrl+C in the foreground session. The CLI is always in foreground during an active session — there is no background mode. The user focuses on one task at a time.
+There is no `stop` command. Sessions end either by timer expiry (auto-stop) or by the user pressing Ctrl+C in the foreground session.
 
-`list` is only usable when no session is active (the CLI is in foreground during sessions). To see tasks, the user must first end the current session.
+## Foreground Session Input
+
+| Input | Behavior |
+|---|---|
+| `some text` | Add a **note** to the current session |
+| `/todo some text` | Capture to **inbox** (deferred, always — no exceptions during focus) |
+
+Show `>` symbol to denote input mode.
 
 ## List Output Format
 
@@ -53,24 +75,27 @@ There is no `stop` command. Sessions end either by timer expiry (auto-stop) or b
   1. Build feature X (2 sessions, 50 min)
   2. Fix bug Y (1 session, 25 min)
   3. Write docs (0 sessions)
+
+  Done:
+  4. Setup CI (1 session, 25 min)
 ```
 
-Only shows tasks where done == false.
+Shows undone tasks first, then done tasks from the same day.
 
 ## Session (Pomodoro)
 
 - **Foreground only** — no background mode. The user should always focus on one task during a session
-- Default duration: 25 minutes, configurable per start via `--duration`
+- Duration is **always prompted** on start, with last used value as default (no `--duration` flag)
 - Last chosen duration becomes the new default (persisted in config)
-- Foreground mode: shows countdown, accepts note input (type + Enter)
+- On new config, default is 25 minutes
+- Shows countdown, `>` prompt for note/todo input
 - Auto-stops on timer expiry with notification
 - Ctrl+C saves session with current timestamp as end
-- Only one session active at a time
 
 ## Configuration
 
 - File: `logbuch.config.json` in same directory as data
-- Stores `default_duration` (in minutes, default: 25, updated on each `start --duration`)
+- Stores `default_duration` (in minutes, default: 25, updated each time user chooses a duration)
 
 ## Storage
 
@@ -91,4 +116,5 @@ Only shows tasks where done == false.
 | Config file | `logbuch.config.json` | Separate from data, same directory |
 | List format | Indexed tasks with session count/time | Clean, readable terminal output |
 | Session mode | Foreground only | Single-task focus, no multitasking |
+| Todos during session | Always go to inbox | GTD/Pomodoro: defer unplanned items, stay focused |
 | develop → main | Fast-forward push | Clean linear history |
