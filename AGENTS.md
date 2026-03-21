@@ -24,68 +24,50 @@
 
 ## Data Model
 
-- **Logbuch** — top-level structure, contains a list of `Log` entries and an `inbox` (list of `Todo` items)
-- **Log** — represents one day, contains a `timestamp` (full ISO 8601) and a list of `Task` entries
-- **Task** — a piece of work with `timestamp` (creation timestamp, unique identifier, never changes), `description`, `done` flag, a list of `Todo` sub-items, and a list of `Session` entries
-- **Todo** — a sub-item with `timestamp`, `description`, `done` flag. Lives either inside a Task (planned sub-task) or in the Logbuch inbox (unplanned, captured during sessions)
+- **Logbuch** — top-level structure, contains a list of `Todo` entries
+- **Todo** — a work item with `timestamp` (creation timestamp, unique identifier), `description`, `done` flag, and a list of `Session` entries
 - **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration` (in minutes), and a list of `Note` entries
 - **Note** — a single timestamped entry with `timestamp` (ISO 8601) and `description`
 
-Notes can only be added during an active session (foreground mode). Tasks carry over between days: on each CLI invocation, unfinished tasks (done == false) from previous days are copied into today's Log (matched by timestamp, empty sessions for the new day).
-
-## Todos & Inbox (GTD / Pomodoro Philosophy)
-
-Two contexts for todos:
-
-- **Planning mode** (outside session): todos are sub-items of tasks. Use `logbuch todo add <task-index> <text>` to break down a task into actionable steps.
-- **Focus mode** (during session): all todos go to the **inbox**. The user is in a pomodoro — every intrusive thought or unplanned item is deferred. Type `/todo some text` to capture to inbox without breaking focus.
-
-After a session, the user triages the inbox: promote items to tasks, attach to existing tasks as todos, or mark done.
+Flat list of todos. No hierarchy, no grouping, no inbox. Simple and clean.
 
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `logbuch add <description>` | Create a new task in today's log |
-| `logbuch list` | Show today's tasks with indices (undone first, then done from same day) |
-| `logbuch start <index>` | Start a pomodoro session (prompts for duration, foreground) |
-| `logbuch toggle [index]` | Toggle a task done/undone (shows list if no index given) |
-| `logbuch todo add <task-index> <text>` | Add a todo to a task |
-| `logbuch todo list <task-index>` | Show todos for a task |
-| `logbuch todo toggle <task-index> <todo-index>` | Toggle a todo done/undone |
-| `logbuch inbox` | Show inbox items |
-| `logbuch inbox promote <index>` | Move inbox item to a task as todo, or create new task |
+| `logbuch add <text>` | Create a todo |
+| `logbuch list` | Show all todos (undone first, then done) |
+| `logbuch start <index>` | Start a pomodoro session on a todo (foreground) |
+| `logbuch toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
 
-There is no `stop` command. Sessions end either by timer expiry (auto-stop) or by the user pressing Ctrl+C in the foreground session.
+There is no `stop` command. Sessions end either by timer expiry (auto-stop) or by the user pressing Ctrl+C.
 
 ## Foreground Session Input
 
 | Input | Behavior |
 |---|---|
 | `some text` | Add a **note** to the current session |
-| `/todo some text` | Capture to **inbox** (deferred, always — no exceptions during focus) |
+| `/todo some text` | Create a new **todo** in the flat list |
 
 Show `>` symbol to denote input mode.
 
 ## List Output Format
 
 ```
-# 2026-03-14
-
-  1. Build feature X (2 sessions, 50 min)
-  2. Fix bug Y (1 session, 25 min)
-  3. Write docs (0 sessions)
+  1. [ ] design login flow (1 session, 25 min)
+  2. [ ] write middleware (0 sessions)
+  3. [ ] check redis (0 sessions)
 
   Done:
-  4. Setup CI (1 session, 25 min)
+  4. [x] setup CI (1 session, 25 min)
 ```
 
-Shows undone tasks first, then done tasks from the same day.
+Shows undone todos first, then done todos.
 
 ## Session (Pomodoro)
 
-- **Foreground only** — no background mode. The user should always focus on one task during a session
-- Duration is **always prompted** on start, with last used value as default (no `--duration` flag)
+- **Foreground only** — no background mode. The user focuses on one todo at a time
+- Duration is **always prompted** on start, with last used value as default
 - Last chosen duration becomes the new default (persisted in config)
 - On new config, default is 25 minutes
 - Shows countdown, `>` prompt for note/todo input
@@ -108,13 +90,13 @@ Shows undone tasks first, then done tasks from the same day.
 |----------|----------|-----------|
 | Timestamp crate | `chrono` approved | `std` has no ISO 8601 formatter; hand-rolling is error-prone |
 | macOS build | `macos-latest` runner (native Apple Silicon) | Cannot cross-compile for darwin from Linux |
-| Linux ARM64 build | `ubuntu-24.04-arm` native runner | `cross` tool unmaintained (no release since Feb 2023, stale Docker images); native runner is simpler and faster |
+| Linux ARM64 build | `ubuntu-24.04-arm` native runner | `cross` tool unmaintained; native runner is simpler and faster |
 | CLI parser | `clap` with derive | Full-featured, handles arg joining for quote-free input |
 | Error handling | `std::io::Error` | No external crate |
 | Storage path | XDG-compliant + `LOGBUCH_DATA_HOME` override | Standard on Linux/macOS |
-| Storage file | `logbuch.json` | Generic name to support future entry types |
+| Storage file | `logbuch.json` | Generic name |
 | Config file | `logbuch.config.json` | Separate from data, same directory |
-| List format | Indexed tasks with session count/time | Clean, readable terminal output |
-| Session mode | Foreground only | Single-task focus, no multitasking |
-| Todos during session | Always go to inbox | GTD/Pomodoro: defer unplanned items, stay focused |
+| List format | Indexed todos with session count/time | Clean, readable terminal output |
+| Session mode | Foreground only | Single-todo focus, no multitasking |
+| Data model | Flat todo list, no hierarchy | Minimalism — grouping happens in issue trackers, not here |
 | develop → main | Fast-forward push | Clean linear history |
