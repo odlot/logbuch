@@ -3,6 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::Duration;
 
 #[derive(Serialize, Deserialize, Clone)]
 struct Note {
@@ -170,6 +174,121 @@ fn save_config(path: &PathBuf, config: &Config) -> io::Result<()> {
     fs::write(path, data)
 }
 
+fn run_session(
+    logbuch: &mut Logbuch,
+    config: &mut Config,
+    todo_idx: usize,
+    duration: u32,
+    path: &PathBuf,
+    config_path: &PathBuf,
+) -> io::Result<()> {
+    let now = Utc::now();
+    let session = Session {
+        begin: now.to_rfc3339(),
+        end: None,
+        duration,
+        notes: Vec::new(),
+        breaks: Vec::new(),
+    };
+    logbuch.todos[todo_idx].sessions.push(session);
+    save_logbuch(path, logbuch)?;
+
+    config.default_duration = duration;
+    save_config(config_path, config)?;
+
+    let session_idx = logbuch.todos[todo_idx].sessions.len() - 1;
+    let end_time = now + chrono::Duration::minutes(duration as i64);
+    let expired = Arc::new(AtomicBool::new(false));
+    let todo_desc = logbuch.todos[todo_idx].description.clone();
+
+    let exp_clone = expired.clone();
+    let timer = thread::spawn(move || {
+        loop {
+            let remaining = end_time.signed_duration_since(Utc::now());
+            if remaining.num_seconds() <= 0 {
+                exp_clone.store(true, Ordering::Relaxed);
+                println!("\nSession complete! ({duration} min)");
+                break;
+            }
+            thread::sleep(Duration::from_secs(1));
+        }
+    });
+
+    let stdin = io::stdin();
+    let mut input = String::new();
+
+    loop {
+        let remaining = end_time.signed_duration_since(Utc::now());
+        if remaining.num_seconds() <= 0 || expired.load(Ordering::Relaxed) {
+            break;
+        }
+        let mins = remaining.num_minutes();
+        let secs = remaining.num_seconds() % 60;
+        print!("  {mins:02}:{secs:02} -- {todo_desc} > ");
+        io::stdout().flush()?;
+
+        input.clear();
+        if stdin.read_line(&mut input)? == 0 {
+            break;
+        }
+
+        if expired.load(Ordering::Relaxed) {
+            break;
+        }
+
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if let Some(command) = trimmed.strip_prefix('/') {
+            let parts: Vec<&str> = command.splitn(2, ' ').collect();
+            let cmd = parts[0];
+            let args = parts.get(1).copied().unwrap_or("");
+            match cmd {
+                "stop" => break,
+                "todo" => {
+                    if !args.is_empty() {
+                        logbuch.todos.push(Todo {
+                            timestamp: Utc::now().to_rfc3339(),
+                            description: args.to_string(),
+                            done: false,
+                            sessions: Vec::new(),
+                        });
+                        save_logbuch(path, logbuch)?;
+                    }
+                }
+                "list" | "ls" => list_todos(logbuch),
+                "help" => print_help(),
+                "quit" | "q" => {
+                    logbuch.todos[todo_idx].sessions[session_idx].end =
+                        Some(Utc::now().to_rfc3339());
+                    save_logbuch(path, logbuch)?;
+                    expired.store(true, Ordering::Relaxed);
+                    let _ = timer.join();
+                    std::process::exit(0);
+                }
+                _ => println!("Unknown command: /{cmd}"),
+            }
+        } else {
+            logbuch.todos[todo_idx].sessions[session_idx]
+                .notes
+                .push(Note {
+                    timestamp: Utc::now().to_rfc3339(),
+                    description: trimmed.to_string(),
+                });
+            save_logbuch(path, logbuch)?;
+        }
+    }
+
+    logbuch.todos[todo_idx].sessions[session_idx].end = Some(Utc::now().to_rfc3339());
+    save_logbuch(path, logbuch)?;
+
+    expired.store(true, Ordering::Relaxed);
+    let _ = timer.join();
+    Ok(())
+}
+
 fn print_help() {
     println!("Commands:");
     println!("  /todo <text>        Create a todo");
@@ -190,8 +309,8 @@ fn main() -> io::Result<()> {
     let path = data_path()?;
     let config_path = config_path()?;
     let mut logbuch = load_logbuch(&path)?;
-    let mut _config = load_config(&config_path)?;
-    save_config(&config_path, &_config)?;
+    let mut config = load_config(&config_path)?;
+    save_config(&config_path, &config)?;
 
     let stdin = io::stdin();
     let mut input = String::new();
@@ -230,6 +349,35 @@ fn main() -> io::Result<()> {
                     }
                 }
                 "list" | "ls" => list_todos(&logbuch),
+                "start" => {
+                    if args.is_empty() {
+                        println!("Usage: /start <index>");
+                    } else if let Some(actual_idx) = resolve_display_index(&logbuch, args) {
+                        print!("Duration [{}]: ", config.default_duration);
+                        io::stdout().flush()?;
+                        let mut dur_input = String::new();
+                        stdin.read_line(&mut dur_input)?;
+                        let duration = if dur_input.trim().is_empty() {
+                            config.default_duration
+                        } else if let Ok(d) = dur_input.trim().parse::<u32>() {
+                            d
+                        } else {
+                            println!("Invalid duration.");
+                            continue;
+                        };
+                        run_session(
+                            &mut logbuch,
+                            &mut config,
+                            actual_idx,
+                            duration,
+                            &path,
+                            &config_path,
+                        )?;
+                    } else {
+                        println!("Invalid index.");
+                    }
+                }
+                "stop" => println!("No active session."),
                 "toggle" => {
                     if args.is_empty() {
                         list_todos(&logbuch);
