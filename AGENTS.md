@@ -24,32 +24,41 @@
 
 ## Data Model
 
-- **Logbuch** — top-level structure, contains a list of `Todo` entries
+- **Logbuch** — top-level structure, contains a flat list of `Todo` entries and a list of `Log` entries
+- **Log** — represents one day, contains a `date` (ISO 8601 date) and a list of standalone `Note` entries
 - **Todo** — a work item with `timestamp` (creation timestamp, unique identifier), `description`, `done` flag, and a list of `Session` entries
 - **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration` (in minutes), and a list of `Note` entries
 - **Note** — a single timestamped entry with `timestamp` (ISO 8601) and `description`
 
-Flat list of todos. No hierarchy, no grouping, no inbox. Simple and clean.
+Todos are persistent across days. Logs hold standalone notes for a given day. The `log` command merges both sources into a chronological daily or weekly view.
 
-## CLI Commands
+## REPL
+
+`logbuch` launches the REPL. There are no subcommands — all interaction happens inside the REPL. This removes friction and fits the mental model of sitting down and focusing.
+
+## REPL Commands
 
 | Command | Description |
 |---------|-------------|
-| `logbuch add <text>` | Create a todo |
-| `logbuch list` | Show all todos (undone first, then done) |
-| `logbuch start <index>` | Start a pomodoro session on a todo (foreground) |
-| `logbuch toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
+| `add <text>` | Create a todo |
+| `list` | Show all todos (undone first, then done) |
+| `start <index>` | Start a pomodoro session on a todo |
+| `toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
+| `log` | Show today's work log |
+| `log <date>` | Show a specific day's log |
+| `log --week` | Show current week's summary |
+| `quit` | Exit the REPL |
 
 There is no `stop` command. Sessions end either by timer expiry (auto-stop) or by the user pressing Ctrl+C.
 
-## Foreground Session Input
+## Context-Sensitive Input
 
-| Input | Behavior |
-|---|---|
-| `some text` | Add a **note** to the current session |
-| `/todo some text` | Create a new **todo** in the flat list |
+| Context | Plain text | Commands |
+|---------|-----------|----------|
+| Top level (REPL) | Standalone note (added to today's log) | `add`, `list`, `start`, `toggle`, `log`, `quit` |
+| Active session | Session note | `/todo <text>` creates a new todo |
 
-Show `>` symbol to denote input mode.
+Show `>` prompt to denote input mode in both contexts.
 
 ## List Output Format
 
@@ -64,13 +73,45 @@ Show `>` symbol to denote input mode.
 
 Shows undone todos first, then done todos.
 
+## Log Output Format
+
+Daily log — entries in chronological order, interleaving standalone notes and sessions:
+
+```
+2026-03-22:
+
+  09:02 had a quick chat with PM about scope
+
+  design login flow
+    Session: 09:15-09:45 (30 min)
+    - sketched out oauth2 flow with PKCE
+    - decided against session cookies, using JWT
+
+  10:50 deployment broke staging, rolled back
+```
+
+Weekly log — aggregated by todo, total time only, all notes flattened:
+
+```
+2026-03-18 -- 2026-03-22:
+
+  design login flow (1h 30min)
+    - sketched out oauth2 flow with PKCE
+    - decided against session cookies, using JWT
+    - finalized token refresh strategy
+
+  write middleware (50min)
+    - auth middleware skeleton done
+    - added rate limiting
+```
+
 ## Session (Pomodoro)
 
 - **Foreground only** — no background mode. The user focuses on one todo at a time
 - Duration is **always prompted** on start, with last used value as default
 - Last chosen duration becomes the new default (persisted in config)
 - On new config, default is 25 minutes
-- Shows countdown, `>` prompt for note/todo input
+- Shows countdown, `>` prompt for note input
 - Auto-stops on timer expiry with notification
 - Ctrl+C saves session with current timestamp as end
 
@@ -91,12 +132,12 @@ Shows undone todos first, then done todos.
 | Timestamp crate | `chrono` approved | `std` has no ISO 8601 formatter; hand-rolling is error-prone |
 | macOS build | `macos-latest` runner (native Apple Silicon) | Cannot cross-compile for darwin from Linux |
 | Linux ARM64 build | `ubuntu-24.04-arm` native runner | `cross` tool unmaintained; native runner is simpler and faster |
-| CLI parser | `clap` with derive | Full-featured, handles arg joining for quote-free input |
+| Interface | REPL-only, no subcommands | Removes friction, avoids command/note ambiguity, fits focused work model |
 | Error handling | `std::io::Error` | No external crate |
 | Storage path | XDG-compliant + `LOGBUCH_DATA_HOME` override | Standard on Linux/macOS |
 | Storage file | `logbuch.json` | Generic name |
 | Config file | `logbuch.config.json` | Separate from data, same directory |
 | List format | Indexed todos with session count/time | Clean, readable terminal output |
 | Session mode | Foreground only | Single-todo focus, no multitasking |
-| Data model | Flat todo list, no hierarchy | Minimalism — grouping happens in issue trackers, not here |
+| Data model | Todos + daily Logs with standalone notes | Todos persist across days; Logs capture standalone notes per day; `log` command merges both |
 | develop → main | Fast-forward push | Clean linear history |
