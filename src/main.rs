@@ -111,7 +111,10 @@ fn list_todos(logbuch: &Logbuch) {
         let (count, mins) = session_stats(todo);
         if count > 0 {
             let s = if count == 1 { "" } else { "s" };
-            println!("- [{mark}] {} ({count} session{s}, {mins} min)", todo.description);
+            println!(
+                "- [{mark}] {} ({count} session{s}, {mins} min)",
+                todo.description
+            );
         } else {
             println!("- [{mark}] {} (0 sessions)", todo.description);
         }
@@ -195,10 +198,7 @@ fn main() -> io::Result<()> {
                         } else {
                             "[ ]"
                         };
-                        println!(
-                            "Toggled: {mark} {}",
-                            logbuch.todos[actual_idx].description
-                        );
+                        println!("Toggled: {mark} {}", logbuch.todos[actual_idx].description);
                         save_logbuch(&path, &logbuch)?;
                     } else {
                         println!("Invalid index.");
