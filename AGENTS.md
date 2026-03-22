@@ -30,7 +30,7 @@
 - **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration` (in minutes), and a list of `Note` entries
 - **Note** — a single timestamped entry with `timestamp` (ISO 8601) and `description`
 
-Todos are persistent across days. Logs hold standalone notes for a given day. The `log` command merges both sources into a chronological daily or weekly view.
+Todos are persistent across days. Logs hold standalone notes for a given day. The `/log` command merges both sources into a chronological view.
 
 ## REPL
 
@@ -38,24 +38,27 @@ Todos are persistent across days. Logs hold standalone notes for a given day. Th
 
 ## REPL Commands
 
+All commands are prefixed with `/`. Input without `/` is always a note.
+
 | Command | Description |
 |---------|-------------|
-| `add <text>` | Create a todo |
-| `list` | Show all todos (undone first, then done) |
-| `start <index>` | Start a pomodoro session on a todo |
-| `toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
-| `log` | Show today's work log |
-| `log <date>` | Show a specific day's log |
-| `log --week` | Show current week's summary |
-| `quit` | Exit the REPL |
+| `/add <text>` | Create a todo |
+| `/list` | Show all todos (undone first, then done) |
+| `/start <index>` | Start a pomodoro session on a todo |
+| `/toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
+| `/log` | Show today's work log |
+| `/log <date>` | Show a specific day's log |
+| `/log <date> <date>` | Show work log for a date range |
+| `/help` | Show available commands |
+| `/quit` | Exit the REPL |
 
-There is no `stop` command. Sessions end either by timer expiry (auto-stop) or by the user pressing Ctrl+C.
+There is no `/stop` command. Sessions end either by timer expiry (auto-stop) or by the user pressing Ctrl+C.
 
 ## Context-Sensitive Input
 
-| Context | Plain text | Commands |
+| Context | Plain text | `/` commands |
 |---------|-----------|----------|
-| Top level (REPL) | Standalone note (added to today's log) | `add`, `list`, `start`, `toggle`, `log`, `quit` |
+| Top level (REPL) | Standalone note (added to today's log) | All commands above |
 | Active session | Session note | `/todo <text>` creates a new todo |
 
 Show `>` prompt to denote input mode in both contexts.
@@ -90,20 +93,7 @@ Daily log — entries in chronological order, interleaving standalone notes and 
   10:50 deployment broke staging, rolled back
 ```
 
-Weekly log — aggregated by todo, total time only, all notes flattened:
-
-```
-2026-03-18 -- 2026-03-22:
-
-  design login flow (1h 30min)
-    - sketched out oauth2 flow with PKCE
-    - decided against session cookies, using JWT
-    - finalized token refresh strategy
-
-  write middleware (50min)
-    - auth middleware skeleton done
-    - added rate limiting
-```
+Date range (`/log 2026-03-18 2026-03-22`) — one daily log per day in the range, same format as above.
 
 ## Session (Pomodoro)
 

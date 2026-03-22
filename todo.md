@@ -54,33 +54,38 @@ struct Logbuch {
 `logbuch` launches the REPL. No subcommands — all interaction happens inside the REPL.
 
 - [ ] Remove clap, implement REPL loop (read line, parse command, execute)
-- [ ] Parse known commands (`add`, `list`, `start`, `toggle`, `log`, `quit`)
-- [ ] Treat unrecognized input as standalone note (add to today's log)
+- [ ] `/` prefix = command, no prefix = note (same rule in both contexts)
+- [ ] Parse known commands (`/add`, `/list`, `/start`, `/toggle`, `/log`, `/help`, `/quit`)
+- [ ] Treat unprefixed input as standalone note (add to today's log)
 - [ ] Handle empty input gracefully (no-op)
 
 ### 3. REPL Commands
 
+All commands are prefixed with `/`. Input without `/` is always a note.
+
 | Command | Description |
 |---------|-------------|
-| `add <text>` | Create a todo |
-| `list` | Show all todos (undone first, then done) |
-| `start <index>` | Start a pomodoro session on a todo |
-| `toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
-| `log` | Show today's work log |
-| `log <date>` | Show a specific day's log |
-| `log --week` | Show current week's summary |
-| `quit` | Exit the REPL |
+| `/add <text>` | Create a todo |
+| `/list` | Show all todos (undone first, then done) |
+| `/start <index>` | Start a pomodoro session on a todo |
+| `/toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
+| `/log` | Show today's work log |
+| `/log <date>` | Show a specific day's log |
+| `/log <date> <date>` | Show work log for a date range |
+| `/help` | Show available commands |
+| `/quit` | Exit the REPL |
 
-- [ ] Implement `add` command (create a Todo)
-- [ ] Implement `list` command (show todos with index, done status, session count, total time)
-- [ ] Implement `start` command (prompts for duration, enters session mode)
-- [ ] Implement `toggle` command (shows list if no index given)
-- [ ] Implement `log` command (daily view, date argument, `--week` flag)
-- [ ] Implement `quit` command
+- [ ] Implement `/add` command (create a Todo)
+- [ ] Implement `/list` command (show todos with index, done status, session count, total time)
+- [ ] Implement `/start` command (prompts for duration, enters session mode)
+- [ ] Implement `/toggle` command (shows list if no index given)
+- [ ] Implement `/log` command (today, specific date, date range)
+- [ ] Implement `/help` command (list available commands)
+- [ ] Implement `/quit` command
 
 ### 4. Foreground Session (Pomodoro Timer)
 
-`start <index>` prompts for duration, then enters foreground mode. Foreground only — no background mode. The user focuses on one todo at a time.
+`/start <index>` prompts for duration, then enters foreground mode. Foreground only — no background mode. The user focuses on one todo at a time.
 
 - [ ] Prompt for duration on start (show default from config, accept Enter for default)
 - [ ] Show countdown timer (updating in terminal)
@@ -137,29 +142,16 @@ Daily log — entries in chronological order, interleaving standalone notes and 
   10:50 deployment broke staging, rolled back
 ```
 
-Weekly log — aggregated by todo, total time only, all notes flattened:
-
-```
-2026-03-18 -- 2026-03-22:
-
-  design login flow (1h 30min)
-    - sketched out oauth2 flow with PKCE
-    - decided against session cookies, using JWT
-    - finalized token refresh strategy
-
-  write middleware (50min)
-    - auth middleware skeleton done
-    - added rate limiting
-```
+Date range (`/log 2026-03-18 2026-03-22`) — one daily log per day in the range, same format as above.
 
 - [ ] Daily log: merge standalone notes and sessions chronologically
-- [ ] Weekly log: aggregate by todo with total time and flattened notes
+- [ ] Date range: render each day in the range using the daily format
 
 ### 8. Update README
 
 - [ ] Document REPL usage and commands
 - [ ] Document pomodoro session workflow and `/todo` capture
-- [ ] Document standalone notes and `log` command
+- [ ] Document standalone notes and `/log` command
 - [ ] Document config file
 
 ### 9. Tests
@@ -169,5 +161,5 @@ Weekly log — aggregated by todo, total time only, all notes flattened:
 - [ ] Session start/stop lifecycle
 - [ ] Standalone note capture to daily log
 - [ ] `/todo` capture during session
-- [ ] Log output (daily and weekly)
+- [ ] Log output (daily and date range)
 - [ ] Config load/save/default behavior
