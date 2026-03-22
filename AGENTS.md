@@ -27,7 +27,8 @@
 - **Logbuch** — top-level structure, contains a flat list of `Todo` entries and a list of `Log` entries
 - **Log** — represents one day, contains a `date` (ISO 8601 date) and a list of standalone `Note` entries
 - **Todo** — a work item with `timestamp` (creation timestamp, unique identifier), `description`, `done` flag, and a list of `Session` entries
-- **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration` (in minutes), and a list of `Note` entries
+- **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration` (in minutes), a list of `Note` entries, and a list of `Break` entries
+- **Break** — a break during a session with `begin`, `end` (None while active), and `duration` (in minutes)
 - **Note** — a single timestamped entry with `timestamp` (ISO 8601) and `description`
 
 Todos are persistent across days. Logs hold standalone notes for a given day. The `/log` command merges both sources into a chronological view.
@@ -46,11 +47,13 @@ All commands are prefixed with `/`. Input without `/` is always a note.
 | `/list` | Show all todos (undone first, then done) |
 | `/start <index>` | Start a pomodoro session on a todo |
 | `/toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
+| `/break <duration>` | Start a break (alias: `/coffee <duration>`) |
+| `/continue` | End break early, resume session |
+| `/stop` | Stop the current session |
 | `/log` | Show today's work log |
 | `/log <date>` | Show a specific day's log |
 | `/log <date> <date>` | Show work log for a date range |
 | `/help` | Show available commands |
-| `/stop` | Stop the current session |
 | `/quit` | Exit the REPL |
 
 Sessions also end by timer expiry (auto-stop) or Ctrl+C.
@@ -84,12 +87,16 @@ Show `>` prompt to denote input mode in both contexts.
 # 2026-03-22
 
 - 09:02 had a quick chat with PM about scope
-- design login flow
-  - Session: 09:15-09:45 (30 min)
+- 09:15-09:45 (30min): design login flow
   - sketched out oauth2 flow with PKCE
   - decided against session cookies, using JWT
+- 09:45-09:55 (10min): break
+- 10:00-10:25 (25min): write middleware
+  - auth middleware skeleton done
 - 10:50 deployment broke staging, rolled back
 ```
+
+Todos with multiple sessions on the same day appear as separate entries, one per session, in chronological order.
 
 
 ## Session (Pomodoro)
@@ -101,6 +108,16 @@ Show `>` prompt to denote input mode in both contexts.
 - Shows countdown, `>` prompt for note input
 - Auto-stops on timer expiry with notification
 - Ctrl+C saves session with current timestamp as end
+
+## Breaks
+
+- `/break <duration>` (alias `/coffee <duration>`) starts a break during a session
+- The session timer pauses and shows a "(break)" suffix
+- A separate break timer counts down to zero
+- Break ends when: break timer reaches zero, user presses Ctrl+C, or user types `/continue`
+- After break, the session timer resumes counting down
+- The break prolongs the session wall-clock time by its duration (e.g. 30min session + 10min break = 40min wall clock, 30min work)
+- Breaks are logged in the session and shown in the daily log
 
 ## Configuration
 
