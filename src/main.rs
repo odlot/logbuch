@@ -131,6 +131,45 @@ fn resolve_display_index(logbuch: &Logbuch, args: &str) -> Option<usize> {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct Config {
+    default_duration: u32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            default_duration: 25,
+        }
+    }
+}
+
+fn config_path() -> io::Result<PathBuf> {
+    let data = data_path()?;
+    let dir = data.parent().ok_or_else(|| {
+        io::Error::new(io::ErrorKind::NotFound, "Cannot determine config directory")
+    })?;
+    Ok(dir.join("logbuch.config.json"))
+}
+
+fn load_config(path: &PathBuf) -> io::Result<Config> {
+    if path.exists() {
+        let data = fs::read_to_string(path)?;
+        serde_json::from_str(&data).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+    } else {
+        Ok(Config::default())
+    }
+}
+
+fn save_config(path: &PathBuf, config: &Config) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let data = serde_json::to_string_pretty(config)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+    fs::write(path, data)
+}
+
 fn print_help() {
     println!("Commands:");
     println!("  /todo <text>        Create a todo");
@@ -149,7 +188,10 @@ fn print_help() {
 
 fn main() -> io::Result<()> {
     let path = data_path()?;
+    let config_path = config_path()?;
     let mut logbuch = load_logbuch(&path)?;
+    let mut _config = load_config(&config_path)?;
+    save_config(&config_path, &_config)?;
 
     let stdin = io::stdin();
     let mut input = String::new();
