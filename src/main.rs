@@ -197,14 +197,15 @@ fn run_session(
     save_config(config_path, config)?;
 
     let session_idx = logbuch.todos[todo_idx].sessions.len() - 1;
-    let end_time = now + chrono::Duration::minutes(duration as i64);
+    let mut end_time = now + chrono::Duration::minutes(duration as i64);
     let expired = Arc::new(AtomicBool::new(false));
     let todo_desc = logbuch.todos[todo_idx].description.clone();
 
     let exp_clone = expired.clone();
+    let timer_end = end_time;
     let timer = thread::spawn(move || {
         loop {
-            let remaining = end_time.signed_duration_since(Utc::now());
+            let remaining = timer_end.signed_duration_since(Utc::now());
             if remaining.num_seconds() <= 0 {
                 exp_clone.store(true, Ordering::Relaxed);
                 println!("\nSession complete! ({duration} min)");
@@ -216,6 +217,7 @@ fn run_session(
 
     let stdin = io::stdin();
     let mut input = String::new();
+    let mut on_break = false;
 
     loop {
         let remaining = end_time.signed_duration_since(Utc::now());
@@ -224,7 +226,11 @@ fn run_session(
         }
         let mins = remaining.num_minutes();
         let secs = remaining.num_seconds() % 60;
-        print!("  {mins:02}:{secs:02} -- {todo_desc} > ");
+        if on_break {
+            print!("  {mins:02}:{secs:02} (break) -- {todo_desc} > ");
+        } else {
+            print!("  {mins:02}:{secs:02} -- {todo_desc} > ");
+        }
         io::stdout().flush()?;
 
         input.clear();
@@ -247,6 +253,42 @@ fn run_session(
             let args = parts.get(1).copied().unwrap_or("");
             match cmd {
                 "stop" => break,
+                "break" | "coffee" => {
+                    if on_break {
+                        println!("Already on break.");
+                    } else if let Ok(break_mins) = args.parse::<u32>() {
+                        on_break = true;
+                        let break_begin = Utc::now();
+                        end_time += chrono::Duration::minutes(break_mins as i64);
+                        let brk = Break {
+                            begin: break_begin.to_rfc3339(),
+                            end: None,
+                            duration: break_mins,
+                        };
+                        logbuch.todos[todo_idx].sessions[session_idx]
+                            .breaks
+                            .push(brk);
+                        save_logbuch(path, logbuch)?;
+                        println!("Break started ({break_mins} min). /continue to resume.");
+                    } else {
+                        println!("Usage: /break <duration>");
+                    }
+                }
+                "continue" => {
+                    if on_break {
+                        on_break = false;
+                        let break_idx = logbuch.todos[todo_idx].sessions[session_idx]
+                            .breaks
+                            .len()
+                            - 1;
+                        logbuch.todos[todo_idx].sessions[session_idx].breaks[break_idx].end =
+                            Some(Utc::now().to_rfc3339());
+                        save_logbuch(path, logbuch)?;
+                        println!("Break ended. Session resumed.");
+                    } else {
+                        println!("Not on break.");
+                    }
+                }
                 "todo" => {
                     if !args.is_empty() {
                         logbuch.todos.push(Todo {
@@ -261,6 +303,14 @@ fn run_session(
                 "list" | "ls" => list_todos(logbuch),
                 "help" => print_help(),
                 "quit" | "q" => {
+                    if on_break {
+                        let break_idx = logbuch.todos[todo_idx].sessions[session_idx]
+                            .breaks
+                            .len()
+                            - 1;
+                        logbuch.todos[todo_idx].sessions[session_idx].breaks[break_idx].end =
+                            Some(Utc::now().to_rfc3339());
+                    }
                     logbuch.todos[todo_idx].sessions[session_idx].end =
                         Some(Utc::now().to_rfc3339());
                     save_logbuch(path, logbuch)?;
@@ -281,6 +331,14 @@ fn run_session(
         }
     }
 
+    if on_break {
+        let break_idx = logbuch.todos[todo_idx].sessions[session_idx]
+            .breaks
+            .len()
+            - 1;
+        logbuch.todos[todo_idx].sessions[session_idx].breaks[break_idx].end =
+            Some(Utc::now().to_rfc3339());
+    }
     logbuch.todos[todo_idx].sessions[session_idx].end = Some(Utc::now().to_rfc3339());
     save_logbuch(path, logbuch)?;
 
