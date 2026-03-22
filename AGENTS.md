@@ -24,26 +24,105 @@
 
 ## Data Model
 
-- **Logbuch** — top-level structure, contains a list of `Log` entries
-- **Log** — represents one day, contains a `timestamp` (full ISO 8601) and a list of `Note` entries
+- **Logbuch** — top-level structure, contains a flat list of `Todo` entries and a list of `Log` entries
+- **Log** — represents one day, contains a `date` (ISO 8601 date) and a list of standalone `Note` entries
+- **Todo** — a work item with `timestamp` (creation timestamp, unique identifier), `description`, `done` flag, and a list of `Session` entries
+- **Session** — a pomodoro work session with `begin`, `end` (None while active), `duration` (in minutes), a list of `Note` entries, and a list of `Break` entries
+- **Break** — a break during a session with `begin`, `end` (None while active), and `duration` (in minutes)
 - **Note** — a single timestamped entry with `timestamp` (ISO 8601) and `description`
 
-When adding a note, find or create the `Log` for today's date, then append the note to it.
+Todos are persistent across days. Logs hold standalone notes for a given day. The `/log` command merges both sources into a chronological view.
+
+## REPL
+
+`logbuch` launches the REPL. There are no subcommands — all interaction happens inside the REPL. This removes friction and fits the mental model of sitting down and focusing.
+
+## REPL Commands
+
+All commands are prefixed with `/`. Input without `/` is always a note.
+
+| Command | Description |
+|---------|-------------|
+| `/todo <text>` | Create a todo |
+| `/list` | Show all todos (undone first, then done) |
+| `/start <index>` | Start a pomodoro session on a todo |
+| `/toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
+| `/break <duration>` | Start a break (alias: `/coffee <duration>`) |
+| `/continue` | End break early, resume session |
+| `/stop` | Stop the current session |
+| `/log` | Show today's work log |
+| `/log <date>` | Show a specific day's log |
+| `/log <date> <date>` | Show work log for a date range |
+| `/help` | Show available commands |
+| `/quit` | Exit the REPL |
+
+Sessions also end by timer expiry (auto-stop) or Ctrl+C.
+
+## Context-Sensitive Input
+
+| Context | Plain text | `/` commands |
+|---------|-----------|----------|
+| Top level (REPL) | Standalone note (added to today's log) | All commands above |
+| Active session | Session note | All commands above |
+
+Show `>` prompt to denote input mode in both contexts.
 
 ## List Output Format
 
-Print the date as a markdown heading, then a bullet point list of notes beneath:
+```
+- [ ] design login flow (1 session, 25 min)
+- [ ] write middleware (0 sessions)
+- [ ] check redis (0 sessions)
+- [x] setup CI (1 session, 25 min)
+```
+
+- Show undone todos first, then done todos
+
+## Log Output Format
+
+- Entries in chronological order, interleaving standalone notes and sessions
+- Date range (`/log <date> <date>`) renders one daily log per day in the range
 
 ```
-# 2026-03-14
+# 2026-03-22
 
-- 10:30 my first note
-- 14:15 another note
-
-# 2026-03-13
-
-- 09:00 yesterday's note
+- 09:02 had a quick chat with PM about scope
+- 09:15-09:45 (30min): design login flow
+  - sketched out oauth2 flow with PKCE
+  - decided against session cookies, using JWT
+- 09:45-09:55 (10min): break
+- 10:00-10:25 (25min): write middleware
+  - auth middleware skeleton done
+- 10:50 deployment broke staging, rolled back
 ```
+
+Todos with multiple sessions on the same day appear as separate entries, one per session, in chronological order.
+
+
+## Session (Pomodoro)
+
+- **Foreground only** — no background mode. The user focuses on one todo at a time
+- Duration is **always prompted** on start, with last used value as default
+- Last chosen duration becomes the new default (persisted in config)
+- On new config, default is 25 minutes
+- Shows countdown, `>` prompt for note input
+- Auto-stops on timer expiry with notification
+- Ctrl+C saves session with current timestamp as end
+
+## Breaks
+
+- `/break <duration>` (alias `/coffee <duration>`) starts a break during a session
+- The session timer pauses and shows a "(break)" suffix
+- A separate break timer counts down to zero
+- Break ends when: break timer reaches zero, user presses Ctrl+C, or user types `/continue`
+- After break, the session timer resumes counting down
+- The break prolongs the session wall-clock time by its duration (e.g. 30min session + 10min break = 40min wall clock, 30min work)
+- Breaks are logged in the session and shown in the daily log
+
+## Configuration
+
+- File: `logbuch.config.json` in same directory as data
+- Stores `default_duration` (in minutes, default: 25, updated each time user chooses a duration)
 
 ## Storage
 
@@ -56,10 +135,13 @@ Print the date as a markdown heading, then a bullet point list of notes beneath:
 |----------|----------|-----------|
 | Timestamp crate | `chrono` approved | `std` has no ISO 8601 formatter; hand-rolling is error-prone |
 | macOS build | `macos-latest` runner (native Apple Silicon) | Cannot cross-compile for darwin from Linux |
-| Linux ARM64 build | `ubuntu-24.04-arm` native runner | `cross` tool unmaintained (no release since Feb 2023, stale Docker images); native runner is simpler and faster |
-| CLI parser | `clap` with derive | Full-featured, handles arg joining for quote-free input |
+| Linux ARM64 build | `ubuntu-24.04-arm` native runner | `cross` tool unmaintained; native runner is simpler and faster |
+| Interface | REPL-only, no subcommands | Removes friction, avoids command/note ambiguity, fits focused work model |
 | Error handling | `std::io::Error` | No external crate |
 | Storage path | XDG-compliant + `LOGBUCH_DATA_HOME` override | Standard on Linux/macOS |
-| Storage file | `logbuch.json` | Generic name to support future entry types |
-| List format | `HH:MM description` grouped by date | Clean, readable terminal output |
+| Storage file | `logbuch.json` | Generic name |
+| Config file | `logbuch.config.json` | Separate from data, same directory |
+| List format | Indexed todos with session count/time | Clean, readable terminal output |
+| Session mode | Foreground only | Single-todo focus, no multitasking |
+| Data model | Todos + daily Logs with standalone notes | Todos persist across days; Logs capture standalone notes per day; `log` command merges both |
 | develop → main | Fast-forward push | Clean linear history |
