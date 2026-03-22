@@ -131,16 +131,14 @@ Config file: `logbuch.config.json` in same directory as data (XDG / `LOGBUCH_DAT
 - Date range (`/log <date> <date>`) renders one daily log per day in the range
 
 ```
-2026-03-22:
+# 2026-03-22
 
-  09:02 had a quick chat with PM about scope
-
-  design login flow
-    Session: 09:15-09:45 (30 min)
-    - sketched out oauth2 flow with PKCE
-    - decided against session cookies, using JWT
-
-  10:50 deployment broke staging, rolled back
+- 09:02 had a quick chat with PM about scope
+- design login flow
+  - Session: 09:15-09:45 (30 min)
+  - sketched out oauth2 flow with PKCE
+  - decided against session cookies, using JWT
+- 10:50 deployment broke staging, rolled back
 ```
 
 - [ ] Daily log: merge standalone notes and sessions chronologically
