@@ -1,4 +1,3 @@
-use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io;
@@ -67,27 +66,6 @@ fn load_logbuch(path: &PathBuf) -> io::Result<Logbuch> {
     } else {
         Ok(Logbuch::default())
     }
-}
-
-fn save_logbuch(path: &PathBuf, logbuch: &Logbuch) -> io::Result<()> {
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    let data = serde_json::to_string_pretty(logbuch)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-    fs::write(path, data)
-}
-
-fn parse_date(timestamp: &str) -> Option<NaiveDate> {
-    DateTime::parse_from_rfc3339(timestamp)
-        .ok()
-        .map(|dt| dt.date_naive())
-}
-
-fn format_time(timestamp: &str) -> String {
-    DateTime::parse_from_rfc3339(timestamp)
-        .map(|dt| dt.format("%H:%M").to_string())
-        .unwrap_or_else(|_| "??:??".to_string())
 }
 
 fn main() -> io::Result<()> {
