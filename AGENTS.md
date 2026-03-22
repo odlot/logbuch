@@ -42,7 +42,7 @@ All commands are prefixed with `/`. Input without `/` is always a note.
 
 | Command | Description |
 |---------|-------------|
-| `/add <text>` | Create a todo |
+| `/todo <text>` | Create a todo |
 | `/list` | Show all todos (undone first, then done) |
 | `/start <index>` | Start a pomodoro session on a todo |
 | `/toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
@@ -59,7 +59,7 @@ There is no `/stop` command. Sessions end either by timer expiry (auto-stop) or 
 | Context | Plain text | `/` commands |
 |---------|-----------|----------|
 | Top level (REPL) | Standalone note (added to today's log) | All commands above |
-| Active session | Session note | `/todo <text>` creates a new todo |
+| Active session | Session note | All commands above |
 
 Show `>` prompt to denote input mode in both contexts.
 

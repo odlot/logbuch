@@ -55,7 +55,7 @@ struct Logbuch {
 
 - [ ] Remove clap, implement REPL loop (read line, parse command, execute)
 - [ ] `/` prefix = command, no prefix = note (same rule in both contexts)
-- [ ] Parse known commands (`/add`, `/list`, `/start`, `/toggle`, `/log`, `/help`, `/quit`)
+- [ ] Parse known commands (`/todo`, `/list`, `/start`, `/toggle`, `/log`, `/help`, `/quit`)
 - [ ] Treat unprefixed input as standalone note (add to today's log)
 - [ ] Handle empty input gracefully (no-op)
 
@@ -65,7 +65,7 @@ All commands are prefixed with `/`. Input without `/` is always a note.
 
 | Command | Description |
 |---------|-------------|
-| `/add <text>` | Create a todo |
+| `/todo <text>` | Create a todo |
 | `/list` | Show all todos (undone first, then done) |
 | `/start <index>` | Start a pomodoro session on a todo |
 | `/toggle [index]` | Toggle a todo done/undone (shows list if no index given) |
@@ -75,7 +75,7 @@ All commands are prefixed with `/`. Input without `/` is always a note.
 | `/help` | Show available commands |
 | `/quit` | Exit the REPL |
 
-- [ ] Implement `/add` command (create a Todo)
+- [ ] Implement `/todo` command (create a Todo)
 - [ ] Implement `/list` command (show todos with index, done status, session count, total time)
 - [ ] Implement `/start` command (prompts for duration, enters session mode)
 - [ ] Implement `/toggle` command (shows list if no index given)
@@ -91,7 +91,7 @@ All commands are prefixed with `/`. Input without `/` is always a note.
 - [ ] Show countdown timer (updating in terminal)
 - [ ] Show `>` prompt to denote input mode
 - [ ] Accept note input inline (user types + Enter to add a note to the session)
-- [ ] `/todo <text>` during session creates a new todo
+- [ ] All `/` commands available during session (e.g. `/todo` to create a new todo)
 - [ ] Auto-stop session when timer expires (set `end` timestamp, return to REPL)
 - [ ] Notify user on session completion (terminal bell / message)
 - [ ] Handle Ctrl+C gracefully: save session with current timestamp as end
