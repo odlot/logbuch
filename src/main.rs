@@ -277,10 +277,8 @@ fn run_session(
                 "continue" => {
                     if on_break {
                         on_break = false;
-                        let break_idx = logbuch.todos[todo_idx].sessions[session_idx]
-                            .breaks
-                            .len()
-                            - 1;
+                        let break_idx =
+                            logbuch.todos[todo_idx].sessions[session_idx].breaks.len() - 1;
                         logbuch.todos[todo_idx].sessions[session_idx].breaks[break_idx].end =
                             Some(Utc::now().to_rfc3339());
                         save_logbuch(path, logbuch)?;
@@ -304,10 +302,8 @@ fn run_session(
                 "help" => print_help(),
                 "quit" | "q" => {
                     if on_break {
-                        let break_idx = logbuch.todos[todo_idx].sessions[session_idx]
-                            .breaks
-                            .len()
-                            - 1;
+                        let break_idx =
+                            logbuch.todos[todo_idx].sessions[session_idx].breaks.len() - 1;
                         logbuch.todos[todo_idx].sessions[session_idx].breaks[break_idx].end =
                             Some(Utc::now().to_rfc3339());
                     }
@@ -332,10 +328,7 @@ fn run_session(
     }
 
     if on_break {
-        let break_idx = logbuch.todos[todo_idx].sessions[session_idx]
-            .breaks
-            .len()
-            - 1;
+        let break_idx = logbuch.todos[todo_idx].sessions[session_idx].breaks.len() - 1;
         logbuch.todos[todo_idx].sessions[session_idx].breaks[break_idx].end =
             Some(Utc::now().to_rfc3339());
     }
