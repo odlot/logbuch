@@ -116,15 +116,13 @@ Config file: `logbuch.config.json` in same directory as data (XDG / `LOGBUCH_DAT
 ### 6. List Output
 
 ```
-  1. [ ] design login flow (1 session, 25 min)
-  2. [ ] write middleware (0 sessions)
-  3. [ ] check redis (0 sessions)
-
-  Done:
-  4. [x] setup CI (1 session, 25 min)
+- [ ] design login flow (1 session, 25 min)
+- [ ] write middleware (0 sessions)
+- [ ] check redis (0 sessions)
+- [x] setup CI (1 session, 25 min)
 ```
 
-- [ ] Show index, done status, description, session count, total time
+- [ ] Show done status, description, session count, total time
 - [ ] Show undone todos first, then done todos
 
 ### 7. Log Output

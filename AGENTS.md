@@ -67,12 +67,10 @@ Show `>` prompt to denote input mode in both contexts.
 ## List Output Format
 
 ```
-  1. [ ] design login flow (1 session, 25 min)
-  2. [ ] write middleware (0 sessions)
-  3. [ ] check redis (0 sessions)
-
-  Done:
-  4. [x] setup CI (1 session, 25 min)
+- [ ] design login flow (1 session, 25 min)
+- [ ] write middleware (0 sessions)
+- [ ] check redis (0 sessions)
+- [x] setup CI (1 session, 25 min)
 ```
 
 - Show undone todos first, then done todos
