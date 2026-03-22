@@ -384,7 +384,10 @@ fn collect_log_entries(logbuch: &Logbuch, date: &NaiveDate) -> Vec<LogEntry> {
     let date_str = date.to_string();
     if let Some(log) = logbuch.logs.iter().find(|l| l.date == date_str) {
         for note in &log.notes {
-            entries.push((note.timestamp.clone(), LogEntry::StandaloneNote(note.clone())));
+            entries.push((
+                note.timestamp.clone(),
+                LogEntry::StandaloneNote(note.clone()),
+            ));
         }
     }
 
@@ -452,7 +455,10 @@ fn print_log_day(logbuch: &Logbuch, date: &NaiveDate) {
                     .as_ref()
                     .map(|e| format_time(e))
                     .unwrap_or_else(|| "now".to_string());
-                println!("- {begin}-{end} ({duration}min): break", duration = brk.duration);
+                println!(
+                    "- {begin}-{end} ({duration}min): break",
+                    duration = brk.duration
+                );
             }
         }
     }
