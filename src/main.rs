@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -68,8 +68,54 @@ fn load_logbuch(path: &PathBuf) -> io::Result<Logbuch> {
     }
 }
 
+fn print_help() {
+    println!("Commands:");
+    println!("  /todo <text>        Create a todo");
+    println!("  /list               Show all todos");
+    println!("  /start <index>      Start a pomodoro session");
+    println!("  /stop               Stop the current session");
+    println!("  /toggle [index]     Toggle todo done/undone");
+    println!("  /break <duration>   Start a break (alias: /coffee)");
+    println!("  /continue           End break, resume session");
+    println!("  /log [date] [date]  Show work log");
+    println!("  /help               Show this help");
+    println!("  /quit               Exit");
+    println!();
+    println!("Text without / prefix is added as a note.");
+}
+
 fn main() -> io::Result<()> {
     let path = data_path()?;
     let _logbuch = load_logbuch(&path)?;
+
+    let stdin = io::stdin();
+    let mut input = String::new();
+
+    loop {
+        print!("> ");
+        io::stdout().flush()?;
+
+        input.clear();
+        if stdin.read_line(&mut input)? == 0 {
+            break;
+        }
+
+        let trimmed = input.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if let Some(command) = trimmed.strip_prefix('/') {
+            let parts: Vec<&str> = command.splitn(2, ' ').collect();
+            let cmd = parts[0];
+
+            match cmd {
+                "help" => print_help(),
+                "quit" | "q" => break,
+                _ => println!("Unknown command: /{cmd}"),
+            }
+        }
+    }
+
     Ok(())
 }
