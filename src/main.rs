@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, Write};
@@ -174,6 +174,18 @@ fn save_config(path: &PathBuf, config: &Config) -> io::Result<()> {
     fs::write(path, data)
 }
 
+fn parse_date(timestamp: &str) -> Option<NaiveDate> {
+    DateTime::parse_from_rfc3339(timestamp)
+        .ok()
+        .map(|dt| dt.date_naive())
+}
+
+fn format_time(timestamp: &str) -> String {
+    DateTime::parse_from_rfc3339(timestamp)
+        .map(|dt| dt.format("%H:%M").to_string())
+        .unwrap_or_else(|_| "??:??".to_string())
+}
+
 fn run_session(
     logbuch: &mut Logbuch,
     config: &mut Config,
@@ -340,6 +352,151 @@ fn run_session(
     Ok(())
 }
 
+fn add_standalone_note(logbuch: &mut Logbuch, text: &str, path: &PathBuf) -> io::Result<()> {
+    let today = Utc::now().date_naive().to_string();
+    let log = logbuch.logs.iter_mut().find(|l| l.date == today);
+    let note = Note {
+        timestamp: Utc::now().to_rfc3339(),
+        description: text.to_string(),
+    };
+    match log {
+        Some(log) => log.notes.push(note),
+        None => logbuch.logs.push(Log {
+            date: today,
+            notes: vec![note],
+        }),
+    }
+    save_logbuch(path, logbuch)
+}
+
+enum LogEntry {
+    StandaloneNote(Note),
+    SessionEntry {
+        todo_description: String,
+        session: Session,
+    },
+    BreakEntry(Break),
+}
+
+fn collect_log_entries(logbuch: &Logbuch, date: &NaiveDate) -> Vec<LogEntry> {
+    let mut entries: Vec<(String, LogEntry)> = Vec::new();
+
+    let date_str = date.to_string();
+    if let Some(log) = logbuch.logs.iter().find(|l| l.date == date_str) {
+        for note in &log.notes {
+            entries.push((
+                note.timestamp.clone(),
+                LogEntry::StandaloneNote(note.clone()),
+            ));
+        }
+    }
+
+    for todo in &logbuch.todos {
+        for session in &todo.sessions {
+            if let Some(session_date) = parse_date(&session.begin)
+                && &session_date == date
+            {
+                for brk in &session.breaks {
+                    entries.push((brk.begin.clone(), LogEntry::BreakEntry(brk.clone())));
+                }
+                entries.push((
+                    session.begin.clone(),
+                    LogEntry::SessionEntry {
+                        todo_description: todo.description.clone(),
+                        session: session.clone(),
+                    },
+                ));
+            }
+        }
+    }
+
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+    entries.into_iter().map(|(_, e)| e).collect()
+}
+
+fn print_log_day(logbuch: &Logbuch, date: &NaiveDate) {
+    let entries = collect_log_entries(logbuch, date);
+    if entries.is_empty() {
+        println!("# {date}");
+        println!();
+        println!("No entries.");
+        println!();
+        return;
+    }
+    println!("# {date}");
+    println!();
+    for entry in &entries {
+        match entry {
+            LogEntry::StandaloneNote(note) => {
+                println!("- {} {}", format_time(&note.timestamp), note.description);
+            }
+            LogEntry::SessionEntry {
+                todo_description,
+                session,
+            } => {
+                let begin = format_time(&session.begin);
+                let end = session
+                    .end
+                    .as_ref()
+                    .map(|e| format_time(e))
+                    .unwrap_or_else(|| "now".to_string());
+                println!(
+                    "- {begin}-{end} ({duration}min): {todo_description}",
+                    duration = session.duration
+                );
+                for note in &session.notes {
+                    println!("  - {}", note.description);
+                }
+            }
+            LogEntry::BreakEntry(brk) => {
+                let begin = format_time(&brk.begin);
+                let end = brk
+                    .end
+                    .as_ref()
+                    .map(|e| format_time(e))
+                    .unwrap_or_else(|| "now".to_string());
+                println!(
+                    "- {begin}-{end} ({duration}min): break",
+                    duration = brk.duration
+                );
+            }
+        }
+    }
+    println!();
+}
+
+fn show_log(logbuch: &Logbuch, args: &str) {
+    let parts: Vec<&str> = args.split_whitespace().collect();
+    match parts.len() {
+        0 => {
+            let today = Utc::now().date_naive();
+            print_log_day(logbuch, &today);
+        }
+        1 => {
+            if let Ok(date) = NaiveDate::parse_from_str(parts[0], "%Y-%m-%d") {
+                print_log_day(logbuch, &date);
+            } else {
+                println!("Invalid date format. Use YYYY-MM-DD.");
+            }
+        }
+        2 => {
+            let start = NaiveDate::parse_from_str(parts[0], "%Y-%m-%d");
+            let end = NaiveDate::parse_from_str(parts[1], "%Y-%m-%d");
+            match (start, end) {
+                (Ok(start), Ok(end)) => {
+                    let mut date = start;
+                    while date <= end {
+                        print_log_day(logbuch, &date);
+                        date += chrono::Duration::days(1);
+                    }
+                }
+                _ => println!("Invalid date format. Use: /log YYYY-MM-DD YYYY-MM-DD"),
+            }
+        }
+        _ => println!("Usage: /log [date] [date]"),
+    }
+}
+
 fn print_help() {
     println!("Commands:");
     println!("  /todo <text>        Create a todo");
@@ -445,10 +602,13 @@ fn main() -> io::Result<()> {
                         println!("Invalid index.");
                     }
                 }
+                "log" => show_log(&logbuch, args),
                 "help" => print_help(),
                 "quit" | "q" => break,
                 _ => println!("Unknown command: /{cmd}"),
             }
+        } else {
+            add_standalone_note(&mut logbuch, trimmed, &path)?;
         }
     }
 
